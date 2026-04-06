@@ -1,5 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Globe, Download, Menu, Eye, PenLine, Save, FilePlus, Check, Moon, Sun, Loader2 } from 'lucide-react';
+import { Globe, Download, Menu, Eye, PenLine, Save, FilePlus, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Language } from '@/types/document';
@@ -14,14 +14,12 @@ interface TopBarProps {
   onTogglePanel: (panel: 'form' | 'preview') => void;
   isSaved: boolean;
   currentDocNumber: string;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
   saving?: boolean;
   downloading?: boolean;
   showAllDocs?: boolean;
 }
 
-const TopBar = ({ title, onExportPdf, onSave, onNewDoc, onToggleSidebar, activePanel, onTogglePanel, isSaved, currentDocNumber, theme, onToggleTheme, saving, downloading, showAllDocs }: TopBarProps) => {
+const TopBar = ({ title, onExportPdf, onSave, onNewDoc, onToggleSidebar, activePanel, onTogglePanel, isSaved, currentDocNumber, saving, downloading, showAllDocs }: TopBarProps) => {
   const { uiLang, docLang, setUiLang, setDocLang, tr } = useLanguage();
 
   return (
@@ -92,15 +90,6 @@ const TopBar = ({ title, onExportPdf, onSave, onNewDoc, onToggleSidebar, activeP
             </Select>
           </div>
         </div>
-
-        {/* Theme toggle */}
-        <button
-          onClick={onToggleTheme}
-          className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
 
         {/* Action buttons - hide when showing all docs */}
         {!showAllDocs && (

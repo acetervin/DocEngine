@@ -41,12 +41,12 @@ const ReceiptPreview = ({ data, total }: Props) => {
 
       {/* Header */}
       <div className="flex items-start justify-between mb-10 relative z-10">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start">
           {data.companyLogo && (
-            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain" style={{ width: 'auto', height: '64px' }} />
+            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain block" style={{ width: 'auto', height: '64px' }} />
           )}
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{data.companyName || '—'}</h1>
+          <div className={data.companyLogo ? (isDocRTL ? 'mr-4' : 'ml-4') : ''}>
+            <h1 className="text-2xl font-semibold tracking-tight leading-tight">{data.companyName || '—'}</h1>
             <p className="text-xs text-muted-foreground mt-1">{docTr.receipt}</p>
             {data.companyAddress && <p className="text-xs text-muted-foreground mt-0.5">{data.companyAddress}</p>}
             {(data.companyPhone || data.companyEmail) && (

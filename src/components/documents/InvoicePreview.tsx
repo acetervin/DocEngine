@@ -49,25 +49,40 @@ const InvoicePreview = ({ data, subtotal, discountAmount, tax, total }: Props) =
             )}
           </div>
         </div>
-        <div className={`text-sm ${isDocRTL ? 'text-left' : 'text-right'}`}>
-          <p className="font-semibold tabular-nums">{data.invoiceNumber || '—'}</p>
-          <p className="text-muted-foreground text-xs mt-1">{data.date}</p>
-          {data.dueDate && (
-            <p className="text-muted-foreground text-xs">{docTr.dueDate}: {data.dueDate}</p>
-          )}
-          {data.paymentTerms && (
-            <p className="text-muted-foreground text-xs">{paymentTermsLabels[data.paymentTerms] || data.paymentTerms}</p>
-          )}
-          <Badge
-            className="mt-2 text-[10px] uppercase tracking-wider rounded-full px-2.5 h-5 inline-flex items-center justify-center border-0"
+        <div className="flex flex-col items-end gap-3">
+          <div className={`bg-secondary rounded-lg p-3 ${isDocRTL ? 'text-left' : 'text-right'}`}>
+            <p className="font-semibold tabular-nums text-sm">{data.invoiceNumber || '—'}</p>
+            <p className="text-muted-foreground text-xs mt-1">{data.date}</p>
+            {data.dueDate && (
+              <p className="text-muted-foreground text-xs">{docTr.dueDate}: {data.dueDate}</p>
+            )}
+            {data.paymentTerms && (
+              <p className="text-muted-foreground text-xs">{paymentTermsLabels[data.paymentTerms] || data.paymentTerms}</p>
+            )}
+          </div>
+          <div
+            className="rounded-lg border-0"
             style={{
               backgroundColor: data.status === 'paid' ? '#22c55e' : '#f59e0b',
-              color: '#fff',
-              lineHeight: '1',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '8px 16px',
+              minWidth: 'fit-content',
             }}
           >
-            <span className="inline-block">{data.status === 'paid' ? docTr.paid : docTr.pending}</span>
-          </Badge>
+            <span
+              style={{
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              {data.status === 'paid' ? docTr.paid : docTr.pending}
+            </span>
+          </div>
         </div>
       </div>
 

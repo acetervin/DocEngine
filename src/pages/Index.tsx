@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useTheme } from '@/hooks/useTheme';
 import { DocumentType, SavedDocument, InvoiceData, ProposalData, ReceiptData } from '@/types/document';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AppSidebar from '@/components/layout/AppSidebar';
@@ -36,21 +35,21 @@ const Index = () => {
   const receipt = useReceiptData();
   const company = useCompanyProfile();
   const store = useDocumentStore();
-  const { theme, toggleTheme } = useTheme();
 
   const { updateField: updateInvoiceField, setData: setInvoiceData, resetData: resetInvoiceData } = invoice;
   const { updateField: updateProposalField, setData: setProposalData, resetData: resetProposalData } = proposal;
   const { updateField: updateReceiptField, setData: setReceiptData, resetData: resetReceiptData } = receipt;
   const { profile: companyProfile, peekNextDocNumber, incrementCounter } = company;
 
-  // Sync company profile → document data
+  // Sync company profile → document data (only for NEW documents)
   useEffect(() => {
+    if (currentDocId) return;
+
     const p = companyProfile;
     updateInvoiceField('companyName', p.companyName);
     updateProposalField('companyName', p.companyName);
     updateReceiptField('companyName', p.companyName);
 
-    // Sync contact info to all doc types
     updateInvoiceField('companyLogo', p.logo);
     updateInvoiceField('companyAddress', p.address);
     updateInvoiceField('companyPhone', p.phone);
@@ -68,18 +67,7 @@ const Index = () => {
     updateReceiptField('companyPhone', p.phone);
     updateReceiptField('companyEmail', p.email);
     updateReceiptField('companyTaxId', p.taxId);
-  }, [companyProfile, updateInvoiceField, updateProposalField, updateReceiptField]);
-
-  useEffect(() => {
-    updateInvoiceField('bankDetails', companyProfile.bankDetails);
-  }, [companyProfile, updateInvoiceField]);
-
-  useEffect(() => {
-    updateInvoiceField('paymentMethods', companyProfile.paymentMethods);
-    if (companyProfile.mpesaDetails) {
-      updateInvoiceField('mpesaDetails', companyProfile.mpesaDetails);
-    }
-  }, [companyProfile, updateInvoiceField]);
+  }, [companyProfile, updateInvoiceField, updateProposalField, updateReceiptField, currentDocId]);
 
   // Reset saved state when data changes (skip if loading a saved doc)
   const loadingDocRef = useRef(false);
@@ -104,7 +92,7 @@ const Index = () => {
     }
 
     if (!companyProfile.companyName.trim()) {
-      toast.error('Please set a company name in the Company Profile section first.');
+      toast.error('Please set a company name first.');
       return;
     }
 
@@ -180,7 +168,7 @@ const Index = () => {
 
   const handleExportPdf = useCallback(async () => {
     if (!isSaved) {
-      toast.error('Please save the document first before downloading.');
+      toast.error('Please save the document first.');
       return;
     }
 
@@ -191,13 +179,12 @@ const Index = () => {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       
+      const originalWidth = el.style.width;
+      el.style.width = '800px';
+
       const docNumber = activeDoc === 'invoice' ? invoice.data.invoiceNumber 
         : activeDoc === 'proposal' ? proposal.data.proposalNumber 
         : receipt.data.receiptNumber;
-
-      const root = document.documentElement;
-      const wasDark = root.classList.contains('dark');
-      if (wasDark) root.classList.remove('dark');
 
       try {
         await html2pdf()
@@ -209,14 +196,15 @@ const Index = () => {
               scale: 2, 
               useCORS: true,
               logging: false,
+              width: 800,
               windowWidth: 800,
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            jsPDF: { unit: 'px', format: [800, 1131], orientation: 'portrait' },
           })
           .from(el)
           .save();
       } finally {
-        if (wasDark) root.classList.add('dark');
+        el.style.width = originalWidth;
       }
     } finally {
       setDownloading(false);
@@ -229,40 +217,7 @@ const Index = () => {
     if (activeDoc === 'invoice') resetInvoiceData();
     else if (activeDoc === 'proposal') resetProposalData();
     else resetReceiptData();
-
-    // Re-sync company data
-    const p = companyProfile;
-    setTimeout(() => {
-      if (activeDoc === 'invoice') {
-        updateInvoiceField('companyName', p.companyName);
-        updateInvoiceField('bankDetails', p.bankDetails);
-        updateInvoiceField('paymentMethods', p.paymentMethods);
-        if (p.mpesaDetails) updateInvoiceField('mpesaDetails', p.mpesaDetails);
-        updateInvoiceField('companyLogo', p.logo);
-        updateInvoiceField('companyAddress', p.address);
-        updateInvoiceField('companyPhone', p.phone);
-        updateInvoiceField('companyEmail', p.email);
-        updateInvoiceField('companyTaxId', p.taxId);
-      } else if (activeDoc === 'proposal') {
-        updateProposalField('companyName', p.companyName);
-        updateProposalField('companyLogo', p.logo);
-        updateProposalField('companyAddress', p.address);
-        updateProposalField('companyPhone', p.phone);
-        updateProposalField('companyEmail', p.email);
-        updateProposalField('companyTaxId', p.taxId);
-      } else {
-        updateReceiptField('companyName', p.companyName);
-        updateReceiptField('companyLogo', p.logo);
-        updateReceiptField('companyAddress', p.address);
-        updateReceiptField('companyPhone', p.phone);
-        updateReceiptField('companyEmail', p.email);
-        updateReceiptField('companyTaxId', p.taxId);
-      }
-    }, 0);
-  }, [
-    activeDoc, companyProfile, resetInvoiceData, resetProposalData, resetReceiptData,
-    updateInvoiceField, updateProposalField, updateReceiptField
-  ]);
+  }, [activeDoc, resetInvoiceData, resetProposalData, resetReceiptData]);
 
   const handleLoadDoc = useCallback((doc: SavedDocument) => {
     setShowAllDocs(false);
@@ -288,13 +243,6 @@ const Index = () => {
       setDeletingId(null);
     }
   }, [store]);
-
-  const handleGenerateNextNumber = useCallback(() => {
-    const nextNum = peekNextDocNumber(activeDoc);
-    if (activeDoc === 'invoice') updateInvoiceField('invoiceNumber', nextNum);
-    else if (activeDoc === 'proposal') updateProposalField('proposalNumber', nextNum);
-    else updateReceiptField('receiptNumber', nextNum);
-  }, [activeDoc, peekNextDocNumber, updateInvoiceField, updateProposalField, updateReceiptField]);
 
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
@@ -325,8 +273,6 @@ const Index = () => {
               : activeDoc === 'proposal' ? proposal.data.proposalNumber
               : receipt.data.receiptNumber
           }
-          theme={theme}
-          onToggleTheme={toggleTheme}
           saving={saving}
           downloading={downloading}
           showAllDocs={showAllDocs}
@@ -400,7 +346,7 @@ const Index = () => {
                 activePanel === 'preview' ? 'block' : 'hidden lg:block'
               }`}
             >
-              <div ref={previewRef} className="preview-light-override">
+              <div ref={previewRef}>
                 {activeDoc === 'invoice' && (
                   <InvoicePreview data={invoice.data} subtotal={invoice.subtotal} discountAmount={invoice.discountAmount} tax={invoice.tax} total={invoice.total} />
                 )}
