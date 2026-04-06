@@ -32,7 +32,7 @@ export const useDocumentStore = () => {
           companyName: row.company_name,
           clientName: row.client_name,
           date: row.date,
-          data: row.data as any,
+          data: row.data as SavedDocument['data'],
           total: row.total ?? undefined,
           subtotal: row.subtotal ?? undefined,
           tax: row.tax ?? undefined,
@@ -57,7 +57,7 @@ export const useDocumentStore = () => {
       company_name: doc.companyName,
       client_name: doc.clientName,
       date: doc.date,
-      data: doc.data as any,
+      data: doc.data as SavedDocument['data'],
       total: doc.total ?? null,
       subtotal: doc.subtotal ?? null,
       tax: doc.tax ?? null,
@@ -92,7 +92,7 @@ export const useDocumentStore = () => {
     });
 
     return true;
-  }, [user]);
+  }, [user, documents]);
 
   const deleteDocument = useCallback(async (id: string) => {
     if (!user) return;

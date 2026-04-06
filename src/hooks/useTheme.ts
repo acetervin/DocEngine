@@ -9,7 +9,9 @@ export const useTheme = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Theme;
       if (stored === 'dark' || stored === 'light') return stored;
-    } catch {}
+    } catch {
+      // Ignore localStorage access errors
+    }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 

@@ -61,7 +61,7 @@ const InvoiceForm = ({
             <div className="relative">
               <img src={companyProfile.logo} alt="Logo" className="max-h-24 max-w-[200px] rounded-lg object-contain border border-border" />
               <button
-                onClick={() => onUpdateCompanyField('logo', undefined as any)}
+                onClick={() => onUpdateCompanyField('logo', undefined)}
                 className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
               >
                 <X className="h-2.5 w-2.5" />

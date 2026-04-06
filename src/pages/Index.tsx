@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { DocumentType, SavedDocument } from '@/types/document';
+import { DocumentType, SavedDocument, InvoiceData, ProposalData, ReceiptData } from '@/types/document';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AppSidebar from '@/components/layout/AppSidebar';
 import TopBar from '@/components/layout/TopBar';
@@ -38,43 +38,48 @@ const Index = () => {
   const store = useDocumentStore();
   const { theme, toggleTheme } = useTheme();
 
+  const { updateField: updateInvoiceField, setData: setInvoiceData, resetData: resetInvoiceData } = invoice;
+  const { updateField: updateProposalField, setData: setProposalData, resetData: resetProposalData } = proposal;
+  const { updateField: updateReceiptField, setData: setReceiptData, resetData: resetReceiptData } = receipt;
+  const { profile: companyProfile, peekNextDocNumber, incrementCounter } = company;
+
   // Sync company profile → document data
   useEffect(() => {
-    const p = company.profile;
-    invoice.updateField('companyName', p.companyName);
-    proposal.updateField('companyName', p.companyName);
-    receipt.updateField('companyName', p.companyName);
+    const p = companyProfile;
+    updateInvoiceField('companyName', p.companyName);
+    updateProposalField('companyName', p.companyName);
+    updateReceiptField('companyName', p.companyName);
 
     // Sync contact info to all doc types
-    invoice.updateField('companyLogo', p.logo);
-    invoice.updateField('companyAddress', p.address);
-    invoice.updateField('companyPhone', p.phone);
-    invoice.updateField('companyEmail', p.email);
-    invoice.updateField('companyTaxId', p.taxId);
+    updateInvoiceField('companyLogo', p.logo);
+    updateInvoiceField('companyAddress', p.address);
+    updateInvoiceField('companyPhone', p.phone);
+    updateInvoiceField('companyEmail', p.email);
+    updateInvoiceField('companyTaxId', p.taxId);
 
-    proposal.updateField('companyLogo', p.logo);
-    proposal.updateField('companyAddress', p.address);
-    proposal.updateField('companyPhone', p.phone);
-    proposal.updateField('companyEmail', p.email);
-    proposal.updateField('companyTaxId', p.taxId);
+    updateProposalField('companyLogo', p.logo);
+    updateProposalField('companyAddress', p.address);
+    updateProposalField('companyPhone', p.phone);
+    updateProposalField('companyEmail', p.email);
+    updateProposalField('companyTaxId', p.taxId);
 
-    receipt.updateField('companyLogo', p.logo);
-    receipt.updateField('companyAddress', p.address);
-    receipt.updateField('companyPhone', p.phone);
-    receipt.updateField('companyEmail', p.email);
-    receipt.updateField('companyTaxId', p.taxId);
-  }, [company.profile.companyName, company.profile.logo, company.profile.address, company.profile.phone, company.profile.email, company.profile.taxId]);
-
-  useEffect(() => {
-    invoice.updateField('bankDetails', company.profile.bankDetails);
-  }, [company.profile.bankDetails]);
+    updateReceiptField('companyLogo', p.logo);
+    updateReceiptField('companyAddress', p.address);
+    updateReceiptField('companyPhone', p.phone);
+    updateReceiptField('companyEmail', p.email);
+    updateReceiptField('companyTaxId', p.taxId);
+  }, [companyProfile, updateInvoiceField, updateProposalField, updateReceiptField]);
 
   useEffect(() => {
-    invoice.updateField('paymentMethods', company.profile.paymentMethods);
-    if (company.profile.mpesaDetails) {
-      invoice.updateField('mpesaDetails', company.profile.mpesaDetails);
+    updateInvoiceField('bankDetails', companyProfile.bankDetails);
+  }, [companyProfile, updateInvoiceField]);
+
+  useEffect(() => {
+    updateInvoiceField('paymentMethods', companyProfile.paymentMethods);
+    if (companyProfile.mpesaDetails) {
+      updateInvoiceField('mpesaDetails', companyProfile.mpesaDetails);
     }
-  }, [company.profile.paymentMethods, company.profile.mpesaDetails]);
+  }, [companyProfile, updateInvoiceField]);
 
   // Reset saved state when data changes (skip if loading a saved doc)
   const loadingDocRef = useRef(false);
@@ -98,7 +103,7 @@ const Index = () => {
       return;
     }
 
-    if (!company.profile.companyName.trim()) {
+    if (!companyProfile.companyName.trim()) {
       toast.error('Please set a company name in the Company Profile section first.');
       return;
     }
@@ -107,10 +112,10 @@ const Index = () => {
     try {
       const docNumber = currentDocId
         ? (activeDoc === 'invoice' ? invoice.data.invoiceNumber : activeDoc === 'proposal' ? proposal.data.proposalNumber : receipt.data.receiptNumber)
-        : company.peekNextDocNumber(activeDoc);
+        : peekNextDocNumber(activeDoc);
 
       if (!currentDocId) {
-        company.incrementCounter(activeDoc);
+        incrementCounter(activeDoc);
       }
 
       let docData: SavedDocument['data'];
@@ -121,7 +126,7 @@ const Index = () => {
 
       if (activeDoc === 'invoice') {
         const updatedData = { ...invoice.data, invoiceNumber: docNumber };
-        invoice.updateField('invoiceNumber', docNumber);
+        updateInvoiceField('invoiceNumber', docNumber);
         docData = updatedData;
         subtotal = invoice.subtotal;
         tax = invoice.tax;
@@ -129,13 +134,13 @@ const Index = () => {
         clientName = invoice.data.client.name;
       } else if (activeDoc === 'proposal') {
         const updatedData = { ...proposal.data, proposalNumber: docNumber };
-        proposal.updateField('proposalNumber', docNumber);
+        updateProposalField('proposalNumber', docNumber);
         docData = updatedData;
         total = proposal.data.totalCost;
         clientName = proposal.data.client.name;
       } else {
         const updatedData = { ...receipt.data, receiptNumber: docNumber };
-        receipt.updateField('receiptNumber', docNumber);
+        updateReceiptField('receiptNumber', docNumber);
         docData = updatedData;
         total = receipt.total;
         clientName = receipt.data.client.name;
@@ -147,8 +152,8 @@ const Index = () => {
         id,
         type: activeDoc,
         docNumber,
-        companyId: company.profile.id,
-        companyName: company.profile.companyName,
+        companyId: companyProfile.id,
+        companyName: companyProfile.companyName,
         clientName,
         date: activeDoc === 'invoice' ? invoice.data.date : activeDoc === 'proposal' ? proposal.data.date : receipt.data.date,
         data: docData,
@@ -167,7 +172,11 @@ const Index = () => {
     } finally {
       setSaving(false);
     }
-  }, [activeDoc, currentDocId, isSaved, invoice, proposal, receipt, company, store]);
+  }, [
+    activeDoc, currentDocId, isSaved, invoice, proposal, receipt, 
+    companyProfile, peekNextDocNumber, incrementCounter, store,
+    updateInvoiceField, updateProposalField, updateReceiptField
+  ]);
 
   const handleExportPdf = useCallback(async () => {
     if (!isSaved) {
@@ -217,40 +226,43 @@ const Index = () => {
   const handleNewDoc = useCallback(() => {
     setCurrentDocId(null);
     setIsSaved(false);
-    if (activeDoc === 'invoice') invoice.resetData();
-    else if (activeDoc === 'proposal') proposal.resetData();
-    else receipt.resetData();
+    if (activeDoc === 'invoice') resetInvoiceData();
+    else if (activeDoc === 'proposal') resetProposalData();
+    else resetReceiptData();
 
     // Re-sync company data
-    const p = company.profile;
+    const p = companyProfile;
     setTimeout(() => {
       if (activeDoc === 'invoice') {
-        invoice.updateField('companyName', p.companyName);
-        invoice.updateField('bankDetails', p.bankDetails);
-        invoice.updateField('paymentMethods', p.paymentMethods);
-        if (p.mpesaDetails) invoice.updateField('mpesaDetails', p.mpesaDetails);
-        invoice.updateField('companyLogo', p.logo);
-        invoice.updateField('companyAddress', p.address);
-        invoice.updateField('companyPhone', p.phone);
-        invoice.updateField('companyEmail', p.email);
-        invoice.updateField('companyTaxId', p.taxId);
+        updateInvoiceField('companyName', p.companyName);
+        updateInvoiceField('bankDetails', p.bankDetails);
+        updateInvoiceField('paymentMethods', p.paymentMethods);
+        if (p.mpesaDetails) updateInvoiceField('mpesaDetails', p.mpesaDetails);
+        updateInvoiceField('companyLogo', p.logo);
+        updateInvoiceField('companyAddress', p.address);
+        updateInvoiceField('companyPhone', p.phone);
+        updateInvoiceField('companyEmail', p.email);
+        updateInvoiceField('companyTaxId', p.taxId);
       } else if (activeDoc === 'proposal') {
-        proposal.updateField('companyName', p.companyName);
-        proposal.updateField('companyLogo', p.logo);
-        proposal.updateField('companyAddress', p.address);
-        proposal.updateField('companyPhone', p.phone);
-        proposal.updateField('companyEmail', p.email);
-        proposal.updateField('companyTaxId', p.taxId);
+        updateProposalField('companyName', p.companyName);
+        updateProposalField('companyLogo', p.logo);
+        updateProposalField('companyAddress', p.address);
+        updateProposalField('companyPhone', p.phone);
+        updateProposalField('companyEmail', p.email);
+        updateProposalField('companyTaxId', p.taxId);
       } else {
-        receipt.updateField('companyName', p.companyName);
-        receipt.updateField('companyLogo', p.logo);
-        receipt.updateField('companyAddress', p.address);
-        receipt.updateField('companyPhone', p.phone);
-        receipt.updateField('companyEmail', p.email);
-        receipt.updateField('companyTaxId', p.taxId);
+        updateReceiptField('companyName', p.companyName);
+        updateReceiptField('companyLogo', p.logo);
+        updateReceiptField('companyAddress', p.address);
+        updateReceiptField('companyPhone', p.phone);
+        updateReceiptField('companyEmail', p.email);
+        updateReceiptField('companyTaxId', p.taxId);
       }
     }, 0);
-  }, [activeDoc, company.profile, invoice, proposal, receipt]);
+  }, [
+    activeDoc, companyProfile, resetInvoiceData, resetProposalData, resetReceiptData,
+    updateInvoiceField, updateProposalField, updateReceiptField
+  ]);
 
   const handleLoadDoc = useCallback((doc: SavedDocument) => {
     setShowAllDocs(false);
@@ -260,13 +272,13 @@ const Index = () => {
     loadingDocRef.current = true;
 
     if (doc.type === 'invoice') {
-      invoice.setData(doc.data as any);
+      setInvoiceData(doc.data as InvoiceData);
     } else if (doc.type === 'proposal') {
-      proposal.setData(doc.data as any);
+      setProposalData(doc.data as ProposalData);
     } else {
-      receipt.setData(doc.data as any);
+      setReceiptData(doc.data as ReceiptData);
     }
-  }, [invoice, proposal, receipt]);
+  }, [setInvoiceData, setProposalData, setReceiptData]);
 
   const handleDeleteDoc = useCallback(async (id: string) => {
     setDeletingId(id);
@@ -278,11 +290,11 @@ const Index = () => {
   }, [store]);
 
   const handleGenerateNextNumber = useCallback(() => {
-    const nextNum = company.peekNextDocNumber(activeDoc);
-    if (activeDoc === 'invoice') invoice.updateField('invoiceNumber', nextNum);
-    else if (activeDoc === 'proposal') proposal.updateField('proposalNumber', nextNum);
-    else receipt.updateField('receiptNumber', nextNum);
-  }, [activeDoc, company, invoice, proposal, receipt]);
+    const nextNum = peekNextDocNumber(activeDoc);
+    if (activeDoc === 'invoice') updateInvoiceField('invoiceNumber', nextNum);
+    else if (activeDoc === 'proposal') updateProposalField('proposalNumber', nextNum);
+    else updateReceiptField('receiptNumber', nextNum);
+  }, [activeDoc, peekNextDocNumber, updateInvoiceField, updateProposalField, updateReceiptField]);
 
   return (
     <div className="flex h-screen bg-surface overflow-hidden">

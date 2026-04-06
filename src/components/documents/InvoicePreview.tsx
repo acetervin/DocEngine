@@ -31,12 +31,12 @@ const InvoicePreview = ({ data, subtotal, discountAmount, tax, total }: Props) =
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-10">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start">
           {data.companyLogo && (
-            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain" />
+            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain block" style={{ width: 'auto', height: '64px' }} />
           )}
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{data.companyName || '—'}</h1>
+          <div className={data.companyLogo ? (isDocRTL ? 'mr-4' : 'ml-4') : ''}>
+            <h1 className="text-2xl font-semibold tracking-tight leading-tight">{data.companyName || '—'}</h1>
             <p className="text-xs text-muted-foreground mt-1">{docTr.invoice}</p>
             {data.companyAddress && <p className="text-xs text-muted-foreground mt-0.5">{data.companyAddress}</p>}
             {(data.companyPhone || data.companyEmail) && (
@@ -59,13 +59,14 @@ const InvoicePreview = ({ data, subtotal, discountAmount, tax, total }: Props) =
             <p className="text-muted-foreground text-xs">{paymentTermsLabels[data.paymentTerms] || data.paymentTerms}</p>
           )}
           <Badge
-            className="mt-2 text-[10px] uppercase tracking-wider rounded-full px-2.5 py-0.5 border-0"
+            className="mt-2 text-[10px] uppercase tracking-wider rounded-full px-2.5 h-5 inline-flex items-center justify-center border-0"
             style={{
               backgroundColor: data.status === 'paid' ? '#22c55e' : '#f59e0b',
               color: '#fff',
+              lineHeight: '1',
             }}
           >
-            {data.status === 'paid' ? docTr.paid : docTr.pending}
+            <span className="inline-block">{data.status === 'paid' ? docTr.paid : docTr.pending}</span>
           </Badge>
         </div>
       </div>

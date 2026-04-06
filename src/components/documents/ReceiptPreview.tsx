@@ -43,7 +43,7 @@ const ReceiptPreview = ({ data, total }: Props) => {
       <div className="flex items-start justify-between mb-10 relative z-10">
         <div className="flex items-start gap-4">
           {data.companyLogo && (
-            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain" />
+            <img src={data.companyLogo} alt="Logo" className="max-h-16 max-w-[180px] rounded-lg object-contain" style={{ width: 'auto', height: '64px' }} />
           )}
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{data.companyName || '—'}</h1>

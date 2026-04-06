@@ -25,7 +25,12 @@ export const useCompanyProfile = () => {
 
   // Load from DB
   useEffect(() => {
-    if (!user) { setProfile(defaultProfile); setDbId(null); setLoaded(false); return; }
+    if (!user) {
+      setProfile(defaultProfile);
+      setDbId(null);
+      setLoaded(false);
+      return;
+    }
 
     const load = async () => {
       const { data, error } = await supabase
@@ -44,10 +49,10 @@ export const useCompanyProfile = () => {
           phone: data.phone || '',
           email: data.email || '',
           taxId: data.tax_id || '',
-          bankDetails: data.bank_details as any,
-          mpesaDetails: data.mpesa_details as any,
+          bankDetails: data.bank_details as BankDetails,
+          mpesaDetails: data.mpesa_details as MpesaDetails,
           paymentMethods: (data.payment_methods || ['bank_transfer']) as PaymentMethod[],
-          counters: data.counters as any,
+          counters: data.counters as CompanyProfile['counters'],
         });
       }
       setLoaded(true);
@@ -68,10 +73,10 @@ export const useCompanyProfile = () => {
         phone: profile.phone,
         email: profile.email,
         tax_id: profile.taxId,
-        bank_details: profile.bankDetails as any,
-        mpesa_details: profile.mpesaDetails as any,
+        bank_details: profile.bankDetails,
+        mpesa_details: profile.mpesaDetails,
         payment_methods: profile.paymentMethods,
-        counters: profile.counters as any,
+        counters: profile.counters,
       };
 
       if (dbId) {
