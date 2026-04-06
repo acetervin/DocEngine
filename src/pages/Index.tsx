@@ -10,6 +10,7 @@ import ProposalForm from '@/components/documents/ProposalForm';
 import ProposalPreview from '@/components/documents/ProposalPreview';
 import ReceiptForm from '@/components/documents/ReceiptForm';
 import ReceiptPreview from '@/components/documents/ReceiptPreview';
+import SaveWarningDialog from '@/components/documents/SaveWarningDialog';
 import { useInvoiceData } from '@/hooks/useInvoiceData';
 import { useProposalData } from '@/hooks/useProposalData';
 import { useReceiptData } from '@/hooks/useReceiptData';
@@ -27,6 +28,8 @@ const Index = () => {
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [saveWarningOpen, setSaveWarningOpen] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false);
   const { tr } = useLanguage();
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +99,72 @@ const Index = () => {
       return;
     }
 
+    // Validate required fields based on document type
+    if (activeDoc === 'invoice') {
+      if (!invoice.data.client.name.trim()) {
+        toast.error('Please enter a client name.');
+        return;
+      }
+      if (invoice.data.lineItems.length === 0) {
+        toast.error('Please add at least one line item.');
+        return;
+      }
+      if (!invoice.data.date) {
+        toast.error('Please select an invoice date.');
+        return;
+      }
+    } else if (activeDoc === 'proposal') {
+      if (!proposal.data.client.name.trim()) {
+        toast.error('Please enter a client name.');
+        return;
+      }
+      if (proposal.data.scopeOfWork.length === 0 || proposal.data.timeline.length === 0) {
+        toast.error('Please add at least one deliverable and one milestone.');
+        return;
+      }
+      if (proposal.data.totalCost <= 0) {
+        toast.error('Please enter a valid total cost.');
+        return;
+      }
+      if (!proposal.data.date) {
+        toast.error('Please select a proposal date.');
+        return;
+      }
+    } else if (activeDoc === 'receipt') {
+      if (!receipt.data.client.name.trim()) {
+        toast.error('Please enter a client name.');
+        return;
+      }
+      if (receipt.data.lineItems.length === 0) {
+        toast.error('Please add at least one line item.');
+        return;
+      }
+      if (receipt.data.amountPaid <= 0) {
+        toast.error('Please enter a valid amount paid.');
+        return;
+      }
+      if (!receipt.data.paymentMethod) {
+        toast.error('Please select a payment method.');
+        return;
+      }
+      if (!receipt.data.transactionRef.trim()) {
+        toast.error('Please enter a transaction reference.');
+        return;
+      }
+      if (!receipt.data.date) {
+        toast.error('Please select a receipt date.');
+        return;
+      }
+    }
+
+    // Show warning dialog before first save
+    if (!currentDocId) {
+      setSaveWarningOpen(true);
+      setPendingSave(true);
+      return;
+    }
+
+    // Proceed with save if already saved before
     setSaving(true);
     try {
       const docNumber = currentDocId
@@ -161,7 +230,76 @@ const Index = () => {
       setSaving(false);
     }
   }, [
-    activeDoc, currentDocId, isSaved, invoice, proposal, receipt, 
+    activeDoc, currentDocId, isSaved, invoice, proposal, receipt,
+    companyProfile, peekNextDocNumber, incrementCounter, store,
+    updateInvoiceField, updateProposalField, updateReceiptField
+  ]);
+
+  const performSave = useCallback(async () => {
+    setSaveWarningOpen(false);
+    setPendingSave(false);
+    setSaving(true);
+
+    try {
+      const docNumber = peekNextDocNumber(activeDoc);
+      incrementCounter(activeDoc);
+
+      let docData: SavedDocument['data'];
+      let total = 0;
+      let subtotal: number | undefined;
+      let tax: number | undefined;
+      let clientName = '';
+
+      if (activeDoc === 'invoice') {
+        const updatedData = { ...invoice.data, invoiceNumber: docNumber };
+        updateInvoiceField('invoiceNumber', docNumber);
+        docData = updatedData;
+        subtotal = invoice.subtotal;
+        tax = invoice.tax;
+        total = invoice.total;
+        clientName = invoice.data.client.name;
+      } else if (activeDoc === 'proposal') {
+        const updatedData = { ...proposal.data, proposalNumber: docNumber };
+        updateProposalField('proposalNumber', docNumber);
+        docData = updatedData;
+        total = proposal.data.totalCost;
+        clientName = proposal.data.client.name;
+      } else {
+        const updatedData = { ...receipt.data, receiptNumber: docNumber };
+        updateReceiptField('receiptNumber', docNumber);
+        docData = updatedData;
+        total = receipt.total;
+        clientName = receipt.data.client.name;
+      }
+
+      const id = crypto.randomUUID();
+
+      const savedDoc: SavedDocument = {
+        id,
+        type: activeDoc,
+        docNumber,
+        companyId: companyProfile.id,
+        companyName: companyProfile.companyName,
+        clientName,
+        date: activeDoc === 'invoice' ? invoice.data.date : activeDoc === 'proposal' ? proposal.data.date : receipt.data.date,
+        data: docData,
+        total,
+        subtotal,
+        tax,
+        createdAt: new Date().toISOString(),
+      };
+
+      const success = await store.saveDocument(savedDoc);
+      if (success) {
+        setCurrentDocId(id);
+        setIsSaved(true);
+        toast.success(`Document ${docNumber} saved successfully!`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    activeDoc, invoice, proposal, receipt,
     companyProfile, peekNextDocNumber, incrementCounter, store,
     updateInvoiceField, updateProposalField, updateReceiptField
   ]);
@@ -361,6 +499,12 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      <SaveWarningDialog
+        open={saveWarningOpen}
+        onOpenChange={setSaveWarningOpen}
+        onConfirm={performSave}
+      />
     </div>
   );
 };

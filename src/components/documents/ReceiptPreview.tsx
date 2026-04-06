@@ -24,14 +24,14 @@ const ReceiptPreview = ({ data, total }: Props) => {
       style={{ minHeight: '1131px' }}
     >
       {/* Watermark */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <div className="flex flex-col items-center -rotate-12">
-          <div className="border-[6px] border-green-600/30 rounded-2xl p-2">
-            <div className="border-[2px] border-green-600/30 rounded-xl px-10 py-4 flex flex-col items-center gap-1">
-              <span className="text-5xl font-black tracking-[0.25em] text-green-600/40 uppercase">
+      <div className="absolute top-8 right-8 z-20 flex items-center justify-center select-none">
+        <div className="flex flex-col items-center -rotate-45">
+          <div className="border-4 border-green-500 rounded-2xl p-3">
+            <div className="border-2 border-green-500 rounded-lg px-8 py-3 flex flex-col items-center gap-1">
+              <span className="text-4xl font-black tracking-widest text-green-500 uppercase leading-none">
                 PAID
               </span>
-              <span className="text-xs font-semibold tracking-[0.2em] text-green-600/30 uppercase">
+              <span className="text-xs font-bold tracking-widest text-green-500 uppercase mt-1">
                 {docTr.paymentConfirmed}
               </span>
             </div>
