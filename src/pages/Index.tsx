@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import AppSidebar from '@/components/layout/AppSidebar';
 import TopBar from '@/components/layout/TopBar';
 import DocumentsPage from '@/pages/Documents';
+import ClientsPage from '@/pages/Clients';
 import InvoiceForm from '@/components/documents/InvoiceForm';
 import InvoicePreview from '@/components/documents/InvoicePreview';
 import ProposalForm from '@/components/documents/ProposalForm';
@@ -24,12 +25,13 @@ const Index = () => {
   const [activePanel, setActivePanel] = useState<'form' | 'preview'>('form');
   const [currentDocId, setCurrentDocId] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-  const [showAllDocs, setShowAllDocs] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'editor' | 'documents' | 'clients'>('editor');
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saveWarningOpen, setSaveWarningOpen] = useState(false);
   const [pendingSave, setPendingSave] = useState(false);
+  const [isEditingSavedDoc, setIsEditingSavedDoc] = useState(false);
   const { tr } = useLanguage();
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -105,12 +107,9 @@ const Index = () => {
         toast.error('Please enter a client name.');
         return;
       }
-      if (invoice.data.lineItems.length === 0) {
-        toast.error('Please add at least one line item.');
-        return;
-      }
-      if (!invoice.data.date) {
-        toast.error('Please select an invoice date.');
+      const hasValidItems = invoice.data.lineItems.some(item => item.description.trim() && item.unitPrice > 0);
+      if (!hasValidItems) {
+        toast.error('Please add at least one line item with description and price.');
         return;
       }
     } else if (activeDoc === 'proposal') {
@@ -118,16 +117,18 @@ const Index = () => {
         toast.error('Please enter a client name.');
         return;
       }
-      if (proposal.data.scopeOfWork.length === 0 || proposal.data.timeline.length === 0) {
-        toast.error('Please add at least one deliverable and one milestone.');
+      const hasValidScope = proposal.data.scopeOfWork.some(item => item.trim());
+      if (!hasValidScope) {
+        toast.error('Please add at least one deliverable.');
+        return;
+      }
+      const hasValidTimeline = proposal.data.timeline.some(item => item.milestone.trim());
+      if (!hasValidTimeline) {
+        toast.error('Please add at least one milestone.');
         return;
       }
       if (proposal.data.totalCost <= 0) {
         toast.error('Please enter a valid total cost.');
-        return;
-      }
-      if (!proposal.data.date) {
-        toast.error('Please select a proposal date.');
         return;
       }
     } else if (activeDoc === 'receipt') {
@@ -135,24 +136,13 @@ const Index = () => {
         toast.error('Please enter a client name.');
         return;
       }
-      if (receipt.data.lineItems.length === 0) {
-        toast.error('Please add at least one line item.');
-        return;
-      }
-      if (receipt.data.amountPaid <= 0) {
-        toast.error('Please enter a valid amount paid.');
-        return;
-      }
-      if (!receipt.data.paymentMethod) {
-        toast.error('Please select a payment method.');
+      const hasValidItems = receipt.data.lineItems.some(item => item.description.trim() && item.unitPrice > 0);
+      if (!hasValidItems) {
+        toast.error('Please add at least one line item with description and price.');
         return;
       }
       if (!receipt.data.transactionRef.trim()) {
         toast.error('Please enter a transaction reference.');
-        return;
-      }
-      if (!receipt.data.date) {
-        toast.error('Please select a receipt date.');
         return;
       }
     }
@@ -304,6 +294,73 @@ const Index = () => {
     updateInvoiceField, updateProposalField, updateReceiptField
   ]);
 
+  const handleSaveAsNew = useCallback(async () => {
+    setSaving(true);
+    try {
+      const docNumber = peekNextDocNumber(activeDoc);
+      incrementCounter(activeDoc);
+
+      let docData: SavedDocument['data'];
+      let total = 0;
+      let subtotal: number | undefined;
+      let tax: number | undefined;
+      let clientName = '';
+
+      if (activeDoc === 'invoice') {
+        const updatedData = { ...invoice.data, invoiceNumber: docNumber };
+        updateInvoiceField('invoiceNumber', docNumber);
+        docData = updatedData;
+        subtotal = invoice.subtotal;
+        tax = invoice.tax;
+        total = invoice.total;
+        clientName = invoice.data.client.name;
+      } else if (activeDoc === 'proposal') {
+        const updatedData = { ...proposal.data, proposalNumber: docNumber };
+        updateProposalField('proposalNumber', docNumber);
+        docData = updatedData;
+        total = proposal.data.totalCost;
+        clientName = proposal.data.client.name;
+      } else {
+        const updatedData = { ...receipt.data, receiptNumber: docNumber };
+        updateReceiptField('receiptNumber', docNumber);
+        docData = updatedData;
+        total = receipt.total;
+        clientName = receipt.data.client.name;
+      }
+
+      const id = crypto.randomUUID();
+
+      const savedDoc: SavedDocument = {
+        id,
+        type: activeDoc,
+        docNumber,
+        companyId: companyProfile.id,
+        companyName: companyProfile.companyName,
+        clientName,
+        date: activeDoc === 'invoice' ? invoice.data.date : activeDoc === 'proposal' ? proposal.data.date : receipt.data.date,
+        data: docData,
+        total,
+        subtotal,
+        tax,
+        createdAt: new Date().toISOString(),
+      };
+
+      const success = await store.saveDocument(savedDoc);
+      if (success) {
+        setCurrentDocId(id);
+        setIsSaved(true);
+        setIsEditingSavedDoc(false);
+        toast.success(`Document ${docNumber} created as new version!`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    activeDoc, invoice, proposal, receipt,
+    companyProfile, peekNextDocNumber, incrementCounter, store,
+    updateInvoiceField, updateProposalField, updateReceiptField
+  ]);
+
   const handleExportPdf = useCallback(async () => {
     if (!isSaved) {
       toast.error('Please save the document first.');
@@ -352,16 +409,18 @@ const Index = () => {
   const handleNewDoc = useCallback(() => {
     setCurrentDocId(null);
     setIsSaved(false);
+    setIsEditingSavedDoc(false);
     if (activeDoc === 'invoice') resetInvoiceData();
     else if (activeDoc === 'proposal') resetProposalData();
     else resetReceiptData();
   }, [activeDoc, resetInvoiceData, resetProposalData, resetReceiptData]);
 
   const handleLoadDoc = useCallback((doc: SavedDocument) => {
-    setShowAllDocs(false);
+    setCurrentPage('editor');
     setActiveDoc(doc.type);
     setCurrentDocId(doc.id);
     setIsSaved(true);
+    setIsEditingSavedDoc(true);
     loadingDocRef.current = true;
 
     if (doc.type === 'invoice') {
@@ -382,26 +441,59 @@ const Index = () => {
     }
   }, [store]);
 
+  const handleDuplicateDoc = useCallback(async (doc: SavedDocument) => {
+    try {
+      const docNumber = peekNextDocNumber(doc.type);
+      incrementCounter(doc.type);
+
+      const newDoc: SavedDocument = {
+        id: crypto.randomUUID(),
+        type: doc.type,
+        docNumber,
+        companyId: doc.companyId,
+        companyName: doc.companyName,
+        clientName: doc.clientName,
+        date: doc.date,
+        data: JSON.parse(JSON.stringify(doc.data)), // Deep clone the data
+        total: doc.total,
+        subtotal: doc.subtotal,
+        tax: doc.tax,
+        createdAt: new Date().toISOString(),
+      };
+
+      const success = await store.saveDocument(newDoc);
+      if (success) {
+        toast.success(`Document ${docNumber} created from duplicate!`);
+      }
+    } catch (error) {
+      toast.error('Failed to duplicate document');
+      console.error(error);
+    }
+  }, [peekNextDocNumber, incrementCounter, store]);
+
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
       <AppSidebar
         activeDoc={activeDoc}
-        onSelectDoc={(type) => { setShowAllDocs(false); setActiveDoc(type); setCurrentDocId(null); setIsSaved(false); }}
+        onSelectDoc={(type) => { setCurrentPage('editor'); setActiveDoc(type); setCurrentDocId(null); setIsSaved(false); }}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         savedDocuments={store.documents}
         onLoadDoc={handleLoadDoc}
         onDeleteDoc={handleDeleteDoc}
-        onViewAllDocs={() => setShowAllDocs(true)}
-        showingAllDocs={showAllDocs}
+        onViewAllDocs={() => setCurrentPage('documents')}
+        onViewClients={() => setCurrentPage('clients')}
+        showingAllDocs={currentPage === 'documents'}
+        showingClients={currentPage === 'clients'}
       />
 
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar
-          title={showAllDocs ? 'All Documents' : docTitles[activeDoc]}
+          title={currentPage === 'documents' ? 'All Documents' : currentPage === 'clients' ? 'Clients' : docTitles[activeDoc]}
           onExportPdf={handleExportPdf}
           onSave={handleSave}
-          onNewDoc={() => { setShowAllDocs(false); handleNewDoc(); }}
+          onSaveAsNew={handleSaveAsNew}
+          onNewDoc={() => { setCurrentPage('editor'); handleNewDoc(); }}
           onToggleSidebar={() => setSidebarOpen(true)}
           activePanel={activePanel}
           onTogglePanel={setActivePanel}
@@ -413,17 +505,21 @@ const Index = () => {
           }
           saving={saving}
           downloading={downloading}
-          showAllDocs={showAllDocs}
+          showAllDocs={currentPage !== 'editor'}
+          isEditingSavedDoc={isEditingSavedDoc}
         />
 
-        {showAllDocs ? (
+        {currentPage === 'documents' ? (
           <DocumentsPage
             documents={store.documents}
             onLoadDoc={handleLoadDoc}
             onDeleteDoc={handleDeleteDoc}
+            onDuplicateDoc={handleDuplicateDoc}
             loading={store.loading}
             deleting={deletingId}
           />
+        ) : currentPage === 'clients' ? (
+          <ClientsPage />
         ) : (
           <div className="flex flex-1 overflow-hidden">
             {/* Form Pane */}

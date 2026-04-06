@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Receipt, ScrollText, X, Trash2, FolderOpen, LogOut, Archive } from 'lucide-react';
+import { FileText, Receipt, ScrollText, X, Trash2, FolderOpen, LogOut, Archive, Users } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { DocumentType, SavedDocument } from '@/types/document';
@@ -14,10 +14,12 @@ interface AppSidebarProps {
   onLoadDoc: (doc: SavedDocument) => void;
   onDeleteDoc: (id: string) => void;
   onViewAllDocs: () => void;
+  onViewClients: () => void;
   showingAllDocs: boolean;
+  showingClients: boolean;
 }
 
-const AppSidebar = ({ activeDoc, onSelectDoc, open, onClose, savedDocuments, onLoadDoc, onDeleteDoc, onViewAllDocs, showingAllDocs }: AppSidebarProps) => {
+const AppSidebar = ({ activeDoc, onSelectDoc, open, onClose, savedDocuments, onLoadDoc, onDeleteDoc, onViewAllDocs, onViewClients, showingAllDocs, showingClients }: AppSidebarProps) => {
   const { tr } = useLanguage();
   const { signOut, user } = useAuth();
   const [deleteTarget, setDeleteTarget] = useState<SavedDocument | null>(null);
@@ -86,7 +88,7 @@ const AppSidebar = ({ activeDoc, onSelectDoc, open, onClose, savedDocuments, onL
         </nav>
 
         {/* All Documents */}
-        <div className="px-3 mt-4">
+        <div className="px-3 mt-4 space-y-2">
           <button
             onClick={() => { onViewAllDocs(); onClose(); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
@@ -97,6 +99,18 @@ const AppSidebar = ({ activeDoc, onSelectDoc, open, onClose, savedDocuments, onL
           >
             <Archive className="h-4 w-4 shrink-0" />
             <span>All Documents</span>
+          </button>
+
+          <button
+            onClick={() => { onViewClients(); onClose(); }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+              showingClients
+                ? 'bg-sidebar-accent text-sidebar-foreground'
+                : 'text-sidebar-muted hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+            }`}
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            <span>Clients</span>
           </button>
         </div>
 

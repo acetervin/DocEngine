@@ -20,6 +20,12 @@ export interface ClientInfo {
   address: string;
 }
 
+export interface SavedClient extends ClientInfo {
+  id: string;
+  isFavorite: boolean;
+  createdAt: string;
+}
+
 export interface BankDetails {
   bankName: string;
   accountName: string;

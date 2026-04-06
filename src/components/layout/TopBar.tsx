@@ -8,6 +8,7 @@ interface TopBarProps {
   title: string;
   onExportPdf: () => void;
   onSave: () => void;
+  onSaveAsNew?: () => void;
   onNewDoc: () => void;
   onToggleSidebar: () => void;
   activePanel: 'form' | 'preview';
@@ -17,9 +18,10 @@ interface TopBarProps {
   saving?: boolean;
   downloading?: boolean;
   showAllDocs?: boolean;
+  isEditingSavedDoc?: boolean;
 }
 
-const TopBar = ({ title, onExportPdf, onSave, onNewDoc, onToggleSidebar, activePanel, onTogglePanel, isSaved, currentDocNumber, saving, downloading, showAllDocs }: TopBarProps) => {
+const TopBar = ({ title, onExportPdf, onSave, onSaveAsNew, onNewDoc, onToggleSidebar, activePanel, onTogglePanel, isSaved, currentDocNumber, saving, downloading, showAllDocs, isEditingSavedDoc }: TopBarProps) => {
   const { uiLang, docLang, setUiLang, setDocLang, tr } = useLanguage();
 
   return (
@@ -99,16 +101,29 @@ const TopBar = ({ title, onExportPdf, onSave, onNewDoc, onToggleSidebar, activeP
               <span className="hidden sm:inline">{tr.newDoc}</span>
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSave}
-              disabled={saving}
-              className={`h-8 text-xs gap-1.5 rounded-lg ${isSaved ? 'text-success border-success/30' : ''}`}
-            >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isSaved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{saving ? 'Saving...' : isSaved ? tr.saved : tr.save}</span>
-            </Button>
+            {isEditingSavedDoc && isSaved ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSaveAsNew}
+                disabled={saving}
+                className="h-8 text-xs gap-1.5 rounded-lg"
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save as New'}</span>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSave}
+                disabled={saving}
+                className={`h-8 text-xs gap-1.5 rounded-lg ${isSaved ? 'text-success border-success/30' : ''}`}
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isSaved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{saving ? 'Saving...' : isSaved ? tr.saved : tr.save}</span>
+              </Button>
+            )}
 
             <Button
               size="sm"

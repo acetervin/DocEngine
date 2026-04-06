@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { FileText, ScrollText, Receipt, Trash2, FolderOpen, Search, Loader2 } from 'lucide-react';
+import { FileText, ScrollText, Receipt, Trash2, Copy, FolderOpen, Search, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DocumentType, SavedDocument } from '@/types/document';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import DeleteDocDialog from '@/components/documents/DeleteDocDialog';
+import DuplicateDocDialog from '@/components/documents/DuplicateDocDialog';
 import { formatCurrency } from '@/lib/translations';
 
 interface DocumentsPageProps {
   documents: SavedDocument[];
   onLoadDoc: (doc: SavedDocument) => void;
   onDeleteDoc: (id: string) => void;
+  onDuplicateDoc?: (doc: SavedDocument) => Promise<void>;
   loading: boolean;
   deleting: string | null;
 }
@@ -27,11 +29,15 @@ const typeColors: Record<DocumentType, string> = {
   receipt: 'bg-secondary text-secondary-foreground',
 };
 
-const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, loading, deleting }: DocumentsPageProps) => {
+const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, onDuplicateDoc, loading, deleting }: DocumentsPageProps) => {
   const { tr } = useLanguage();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<DocumentType | 'all'>('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<SavedDocument | null>(null);
+  const [duplicateTarget, setDuplicateTarget] = useState<SavedDocument | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
 
   const filtered = documents.filter((doc) => {
     const matchesType = filterType === 'all' || doc.type === filterType;
@@ -40,7 +46,22 @@ const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, loading, deleting }:
       doc.docNumber.toLowerCase().includes(search.toLowerCase()) ||
       doc.clientName.toLowerCase().includes(search.toLowerCase()) ||
       doc.companyName.toLowerCase().includes(search.toLowerCase());
-    return matchesType && matchesSearch;
+
+    // Date range filtering
+    let matchesDateRange = true;
+    if (fromDate || toDate) {
+      const docDate = new Date(doc.date).toDateString();
+      if (fromDate) {
+        const from = new Date(fromDate).toDateString();
+        matchesDateRange = matchesDateRange && docDate >= from;
+      }
+      if (toDate) {
+        const to = new Date(toDate).toDateString();
+        matchesDateRange = matchesDateRange && docDate <= to;
+      }
+    }
+
+    return matchesType && matchesSearch && matchesDateRange;
   });
 
   const formatDate = (dateStr: string) => {
@@ -68,30 +89,62 @@ const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, loading, deleting }:
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by doc number, client, or company..."
-              className="pl-9 h-9 text-sm"
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by doc number, client, or company..."
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <div className="flex gap-1.5">
+              {(['all', 'invoice', 'proposal', 'receipt'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    filterType === type
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {type === 'all' ? 'All' : tr[`${type}s` as keyof typeof tr]}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-1.5">
-            {(['all', 'invoice', 'proposal', 'receipt'] as const).map((type) => (
+
+          {/* Date range filter */}
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-muted-foreground mb-1.5 block">From Date</label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-muted-foreground mb-1.5 block">To Date</label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            {(fromDate || toDate) && (
               <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  filterType === type
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-muted-foreground hover:text-foreground'
-                }`}
+                onClick={() => { setFromDate(''); setToDate(''); }}
+                className="px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground bg-secondary hover:text-foreground transition-colors"
               >
-                {type === 'all' ? 'All' : tr[`${type}s` as keyof typeof tr]}
+                Clear Dates
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -151,6 +204,14 @@ const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, loading, deleting }:
                   )}
 
                   <button
+                    onClick={(e) => { e.stopPropagation(); setDuplicateTarget(doc); }}
+                    disabled={duplicating}
+                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-accent/10 text-muted-foreground hover:text-accent transition-all disabled:opacity-50"
+                  >
+                    {duplicating && duplicateTarget?.id === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                  </button>
+
+                  <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc); }}
                     disabled={isDeleting}
                     className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all disabled:opacity-50"
@@ -172,6 +233,24 @@ const DocumentsPage = ({ documents, onLoadDoc, onDeleteDoc, loading, deleting }:
           if (deleteTarget) {
             onDeleteDoc(deleteTarget.id);
             setDeleteTarget(null);
+          }
+        }}
+      />
+
+      <DuplicateDocDialog
+        open={!!duplicateTarget}
+        onOpenChange={(v) => { if (!v) setDuplicateTarget(null); }}
+        docNumber={duplicateTarget?.docNumber || ''}
+        newDocNumber={`${duplicateTarget?.docNumber} (Copy)`}
+        onConfirm={async () => {
+          if (duplicateTarget && onDuplicateDoc) {
+            setDuplicating(true);
+            try {
+              await onDuplicateDoc(duplicateTarget);
+              setDuplicateTarget(null);
+            } finally {
+              setDuplicating(false);
+            }
           }
         }}
       />

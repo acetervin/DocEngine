@@ -1,10 +1,14 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ProposalData, Currency, CompanyProfile } from '@/types/document';
+import { ProposalData, Currency, CompanyProfile, SavedClient } from '@/types/document';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useClientStore } from '@/hooks/useClientStore';
+import ClientDialog from '@/components/documents/ClientDialog';
+import ClientSelector from '@/components/documents/ClientSelector';
 
 interface Props {
   data: ProposalData;
@@ -30,9 +34,31 @@ const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 
 const ProposalForm = ({ data, updateField, updateClient, addDeliverable, updateDeliverable, removeDeliverable, addMilestone, updateMilestone, removeMilestone, companyProfile, onUpdateCompanyName }: Props) => {
   const { tr } = useLanguage();
+  const { clients, saveClient } = useClientStore();
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+
+  const handleSelectClient = (client: SavedClient) => {
+    updateClient('name', client.name);
+    updateClient('email', client.email);
+    updateClient('address', client.address);
+  };
+
+  const handleSaveCurrentClient = async () => {
+    if (!data.client.name.trim()) {
+      alert('Please enter a client name first.');
+      return;
+    }
+    await saveClient({
+      name: data.client.name,
+      email: data.client.email,
+      address: data.client.address,
+      isFavorite: false,
+    });
+  };
 
   return (
-    <div className="space-y-6 p-5 overflow-y-auto h-full scrollbar-thin">
+    <>
+      <div className="space-y-6 p-5 overflow-y-auto h-full scrollbar-thin">
       {/* Company Profile */}
       <section className="space-y-3">
         <SectionLabel>{tr.companyProfile}</SectionLabel>
@@ -83,9 +109,27 @@ const ProposalForm = ({ data, updateField, updateClient, addDeliverable, updateD
 
       <section className="space-y-3">
         <SectionLabel>{tr.clientInfo}</SectionLabel>
+        {clients.length > 0 && (
+          <ClientSelector
+            clients={clients}
+            onSelectClient={handleSelectClient}
+            onAddNew={() => setClientDialogOpen(true)}
+            placeholder="Select a saved client..."
+          />
+        )}
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.clientName} value={data.client.name} onChange={e => updateClient('name', e.target.value)} />
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.email} value={data.client.email} onChange={e => updateClient('email', e.target.value)} />
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.address} value={data.client.address} onChange={e => updateClient('address', e.target.value)} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleSaveCurrentClient}
+          className="text-xs gap-1.5 w-full"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Save as New Client
+        </Button>
       </section>
 
       <section className="space-y-3">
@@ -142,6 +186,13 @@ const ProposalForm = ({ data, updateField, updateClient, addDeliverable, updateD
         />
       </section>
     </div>
+
+    <ClientDialog
+      open={clientDialogOpen}
+      onOpenChange={setClientDialogOpen}
+      onSave={saveClient}
+    />
+    </>
   );
 };
 

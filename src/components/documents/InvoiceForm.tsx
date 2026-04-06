@@ -1,12 +1,15 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { InvoiceData, LineItem, Currency, InvoiceStatus, PaymentMethod, CompanyProfile, BankDetails, MpesaDetails, Discount } from '@/types/document';
+import { InvoiceData, LineItem, Currency, InvoiceStatus, PaymentMethod, CompanyProfile, BankDetails, MpesaDetails, Discount, SavedClient } from '@/types/document';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useClientStore } from '@/hooks/useClientStore';
+import ClientDialog from '@/components/documents/ClientDialog';
+import ClientSelector from '@/components/documents/ClientSelector';
 
 interface Props {
   data: InvoiceData;
@@ -38,6 +41,8 @@ const InvoiceForm = ({
 }: Props) => {
   const { tr } = useLanguage();
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const { clients, saveClient } = useClientStore();
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,8 +55,28 @@ const InvoiceForm = ({
     reader.readAsDataURL(file);
   };
 
+  const handleSelectClient = (client: SavedClient) => {
+    updateClient('name', client.name);
+    updateClient('email', client.email);
+    updateClient('address', client.address);
+  };
+
+  const handleSaveCurrentClient = async () => {
+    if (!data.client.name.trim()) {
+      alert('Please enter a client name first.');
+      return;
+    }
+    await saveClient({
+      name: data.client.name,
+      email: data.client.email,
+      address: data.client.address,
+      isFavorite: false,
+    });
+  };
+
   return (
-    <div className="space-y-6 p-5 overflow-y-auto h-full scrollbar-thin">
+    <>
+      <div className="space-y-6 p-5 overflow-y-auto h-full scrollbar-thin">
       {/* Company Profile (shared) */}
       <section className="space-y-3">
         <SectionLabel>{tr.companyProfile}</SectionLabel>
@@ -162,9 +187,27 @@ const InvoiceForm = ({
       {/* Client */}
       <section className="space-y-3">
         <SectionLabel>{tr.clientInfo}</SectionLabel>
+        {clients.length > 0 && (
+          <ClientSelector
+            clients={clients}
+            onSelectClient={handleSelectClient}
+            onAddNew={() => setClientDialogOpen(true)}
+            placeholder="Select a saved client..."
+          />
+        )}
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.clientName} value={data.client.name} onChange={e => updateClient('name', e.target.value)} />
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.email} value={data.client.email} onChange={e => updateClient('email', e.target.value)} />
         <Input className="h-9 text-sm rounded-lg" placeholder={tr.address} value={data.client.address} onChange={e => updateClient('address', e.target.value)} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleSaveCurrentClient}
+          className="text-xs gap-1.5 w-full"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Save as New Client
+        </Button>
       </section>
 
       {/* Line Items */}
@@ -288,6 +331,13 @@ const InvoiceForm = ({
         />
       </section>
     </div>
+
+    <ClientDialog
+      open={clientDialogOpen}
+      onOpenChange={setClientDialogOpen}
+      onSave={saveClient}
+    />
+    </>
   );
 };
 
